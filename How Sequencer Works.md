@@ -44,7 +44,6 @@ Transactions are put into a transaction queue in the sequencer:
 
 - Blocks are built in the createBlock() function in sequencer.go
 
-In order to create a new block, first create the header:
 the sequencer gets these inputs to make a block
 
     func ProduceBlockAdvanced(
