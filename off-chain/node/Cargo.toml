@@ -1,0 +1,17 @@
+[package]
+name = "node"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+solana-accounts-db = "1.18.15"
+solana-core = "1.18.15"
+solana-gossip = "1.18.15"
+solana-ledger = "1.18.14"
+solana-program = "1.18.15"
+solana-program-runtime = "1.18.15"
+solana-rpc = "1.18.15"
+solana-runtime = "1.18.14"
+solana-sdk = "1.18.14"
+solana-streamer = "1.18.15"
+solana-validator = "1.18.14"
