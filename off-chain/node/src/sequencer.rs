@@ -77,24 +77,22 @@ impl Sequencer {
 
     fn execute_transaction(&self, tx: &Transaction) -> Result<(), Box<dyn std::error::Error>> {
         println!("Executing txn ....");
-        let mut forks = self.validator.bank_forks.write().unwrap();
+        // getting bank
         let bank = self.validator.bank_forks.read().unwrap().working_bank();
 
         if bank.is_frozen() {
-            println!("Bank frozen creating new bank");
-            let new_bank = Bank::new_from_parent(bank.clone(), &bank.collector_id(), bank.slot());
-            forks.insert(new_bank);
-
+            // create new bank and insert to the bank_forks
+            let new_bank = Bank::new_from_parent(bank.clone(), &bank.collector_id(), bank.slot() + 1);
+            self.validator.bank_forks.write().unwrap().insert(new_bank);
         }
-        // else {
-        //     println!("unfrozen bank and processing txn");
-        //     bank.process_transaction(tx).unwrap();
-        // }
-
+        
+        // getting bank again and execute the transaction
         let bank = self.validator.bank_forks.read().unwrap().working_bank();
-        println!("Bank status: {}", bank.is_frozen());
 
-        // provide the txn receipt for sucessful txns
+        bank.process_transaction(tx).unwrap_or_else(|e| {
+            eprintln!("Transaction Execution Failed: {}", e);
+        });
+
         Ok(())
     }
 }
@@ -128,11 +126,13 @@ pub fn setting_l2_env() -> Arc<Validator> {
     let vote_keypair = load_keypair(vote_keypair_path);
 
     if !ledger_path.exists() {
+        println!("Creating new ledger");
         let GenesisConfigInfo {
             genesis_config,
-            mint_keypair: _,
+            mint_keypair,
             ..
         } = create_genesis_config(1_000_000_000_000);
+        save_keypair(&mint_keypair, Path::new("../keypairs/mint.json"));
         create_new_ledger(
             ledger_path,
             &genesis_config,
@@ -140,11 +140,12 @@ pub fn setting_l2_env() -> Arc<Validator> {
             LedgerColumnOptions::default(),
         )
         .expect("Failed to create ledger");
+    } else {
+        println!("Using existing ledger");
     }
 
     // initializing node
     let node = Node::new_localhost_with_pubkey(&identity_keypair.pubkey());
-
     let start_progress = Arc::new(RwLock::new(ValidatorStartProgress::default()));
 
     let validator = Validator::new(
