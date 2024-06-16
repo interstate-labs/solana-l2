@@ -53,8 +53,12 @@ clean:
 
 Setup Kafka as DA Layer
 1) Follow instructions in ```git@github.com:rpcpool/yellowstone-grpc.git``` tag ```v1.9.0+solana.1.16.15```
-2) Find docker files by 
+2) Find docker files by
+
         a) `docker ps`
+   
         b) `docker exec -it your_kafka_container_name_or_id /bin/bash`
+   
         c) `cd kafka_2.13-3.5.0/bin`
+   
         d) `./kafka-topics.sh --bootstrap-server localhost:29092 --create --topic grpc1`
