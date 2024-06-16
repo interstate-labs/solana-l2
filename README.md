@@ -48,6 +48,4 @@ clean:
 2) switch to tag: v1.9.0+solana.1.16.15
 3) run `cargo build --release`
 4) Follow instructions in yellowstone-grpc readme 
-5) run ```bash
-$ solana-validator --geyser-plugin-config yellowstone-grpc-geyser/config.json
-```
+5) run ``` $ solana-validator --geyser-plugin-config yellowstone-grpc-geyser/config.json```
