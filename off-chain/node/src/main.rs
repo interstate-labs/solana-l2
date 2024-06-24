@@ -1,59 +1,86 @@
-use std::path::Path;
-
-use sequencer::{setting_l2_env, Sequencer};
-use solana_client::rpc_client::RpcClient;
-use solana_program_runtime::log_collector::log::{debug, info};
-use solana_sdk::native_token::LAMPORTS_PER_SOL;
-use solana_sdk::signature::Keypair;
-use solana_sdk::signer::{EncodableKey, Signer};
-use solana_sdk::transaction::Transaction;
+use sequencer::Sequencer;
+use anchor_client::solana_client::nonblocking::rpc_client::RpcClient;
+use anchor_client::solana_client::rpc_config::RpcRequestAirdropConfig;
+use anchor_client::solana_sdk::commitment_config::CommitmentConfig;
+use anchor_client::solana_sdk::native_token::LAMPORTS_PER_SOL;
+use anchor_client::solana_sdk::signature::Keypair;
+use anchor_client::solana_sdk::signer::Signer;
+use anchor_client::solana_sdk::transaction::Transaction;
 
 pub mod sequencer;
 
 fn main() {
+    // getting balances
+    // let sender_balance = sequencer.client.get_balance(&sender.pubkey()).unwrap();
+    // let receiver_balance = sequencer.client.get_balance(&receiver.pubkey()).unwrap();
+
+    // println!(
+    //     "Before Balances: \n sender: {}, receiver: {}",
+    //     sender_balance,
+    //     receiver_balance
+    // );
+
+    // // getting balances
+    // let sender_balance = sequencer.client.get_balance(&sender.pubkey()).unwrap();
+    // let receiver_balance = sequencer.client.get_balance(&receiver.pubkey()).unwrap();
+
+    // println!(
+    //     "Before Balances: \n sender: {}, receiver: {}",
+    //     sender_balance,
+    //     receiver_balance
+    // );
+
+    println!("--x--- end ---x--");
+}
+
+use tokio::time::{sleep, Duration};
+#[tokio::test]
+async fn test_main() {
     println!("--x-- start ---x--");
-    debug!("From debug");
 
-    // initialize sequencer
-    let sequencer = Sequencer::new();
-    let validator = setting_l2_env();
+    // setup
+    let rpc_url = "http://localhost:8899";
+    let sequencer = Sequencer::new(rpc_url, rpc_url);
+    // let client = RpcClient::new_with_commitment(rpc_url.to_string(), CommitmentConfig::confirmed());
 
-    // L2 txn
-    let sender = Keypair::read_from_file("./keypairs/mint.json").unwrap();
-    let receiver = Keypair::read_from_file("./keypairs/receiver.json").unwrap();
+    // keypairs
+    let sender = Keypair::new();
+    let receiver = Keypair::new();
+
+    // airdrop for sender
+    let airdrop_signature = sequencer
+        .l2_client
+        .request_airdrop(&sender.pubkey(), 5 * LAMPORTS_PER_SOL)
+        .await
+        .expect("Airdrop request failed");
+
+    // Confirm the airdrop transaction
+    sequencer
+        .l2_client
+        .confirm_transaction(&airdrop_signature)
+        .await
+        .expect("Transaction confirmation failed");
+
+    // Sleep for a few seconds to ensure the transaction is processed
+    sleep(Duration::from_secs(5)).await;
 
     // getting balances
-    let sender_balance = validator
-        .bank_forks
-        .read()
-        .unwrap()
-        .working_bank()
-        .get_balance(&sender.pubkey());
-    let receiver_balance = validator
-        .bank_forks
-        .read()
-        .unwrap()
-        .working_bank()
-        .get_balance(&receiver.pubkey());
+    let sender_balance = sequencer.get_balance(&sender.pubkey()).await;
+    let receiver_balance = sequencer.get_balance(&receiver.pubkey()).await;
+
     println!(
-        "Before Balances: \n sender: {}, receiver: {}",
-        sender_balance / (10u64.pow(9)),
-        receiver_balance / (10u64.pow(9))
+        "Before Balances: \n sender: {} SOL, receiver: {} SOL",
+        sender_balance, receiver_balance
     );
 
+    // Transaction
     let ix = solana_program::system_instruction::transfer(
         &sender.pubkey(),
         &receiver.pubkey(),
         LAMPORTS_PER_SOL,
     );
 
-    let recent_blockhash = validator
-        .bank_forks
-        .read()
-        .unwrap()
-        .working_bank()
-        .last_blockhash();
-
+    let recent_blockhash = sequencer.l2_client.get_latest_blockhash().await.unwrap();
     println!("Block hash: {}", recent_blockhash);
 
     let tx = Transaction::new_signed_with_payer(
@@ -63,36 +90,14 @@ fn main() {
         recent_blockhash,
     );
 
-    sequencer.add_transaction(&validator, tx).unwrap();
-
-    info!(" ---------------------------x---------------- Transaction Processeddddddd ---------------------x--------------- ");
+    sequencer.add_transaction(tx).await.unwrap();
 
     // getting balances
-    let sender_balance = validator
-        .bank_forks
-        .read()
-        .unwrap()
-        .working_bank()
-        .get_balance(&sender.pubkey());
-    let receiver_balance = validator
-        .bank_forks
-        .read()
-        .unwrap()
-        .working_bank()
-        .get_balance(&receiver.pubkey());
+    let sender_balance = sequencer.get_balance(&sender.pubkey()).await;
+    let receiver_balance = sequencer.get_balance(&receiver.pubkey()).await;
+
     println!(
-        "After Balances: \n sender: {}, receiver: {}",
-        sender_balance / (10u64.pow(9)),
-        receiver_balance / (10u64.pow(9))
+        "After Balances: \n sender: {} SOL, receiver: {} SOL",
+        sender_balance, receiver_balance
     );
-
-    validator.close();
-    println!("--x--- end ---x--");
-}
-
-#[test]
-pub fn test_main() {
-    debug!("---x----");
-    main();
-    debug!("---x----");
 }
